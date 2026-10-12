@@ -1,26 +1,45 @@
-{% assign start = 'Now' | Date | DateAdd:-30,'d' %}
+{%- comment -%}
+    Include Until Ends
+    Keeps event occurrences visible until their scheduled end time, not just their start.
 
-{% calendarevents calendarid:'1' startdate:'{{ start }}' daterange:'6m' maxoccurrences:'500' -%}
-{% assign EventItemOccurrences = EventScheduledInstances -%}
-{% assign eventItemOccurrenceCount = 0 -%}
+    Settings:
+      lookbackDays   How far back to fetch occurrences, so multi-day events that started
+                     earlier still appear. Past occurrences count toward maxoccurrences.
+      emptyMessage   Shown when nothing is in progress or upcoming.
 
-{% for eventItemOccurrence in EventScheduledInstances -%}
-    {% assign eventDurationMinutes = eventItemOccurrence.EventItemOccurrence.Schedule.DurationInMinutes | Default:0 -%}
-    {% assign eventEndDateTime = eventItemOccurrence.DateTime | DateAdd:eventDurationMinutes,'m' -%}
-    {% assign minutesUntilEnd = now | DateDiff:eventEndDateTime,'m' -%}
-    {% if minutesUntilEnd >= 0 -%}
-        {% assign eventItemOccurrenceCount = eventItemOccurrenceCount | Plus:1 -%}
-    {% endif -%}
-{% endfor -%}
+    Occurrences with no duration (DurationInMinutes = 0) stay visible through the end of
+    their start day.
 
-{% for eventItemOccurrence in EventItemOccurrences -%}
-    {% assign eventDurationMinutes = eventItemOccurrence.EventItemOccurrence.Schedule.DurationInMinutes | Default:0 -%}
-    {% assign eventEndDateTime = eventItemOccurrence.DateTime | DateAdd:eventDurationMinutes,'m' -%}
-    {% assign minutesUntilEnd = now | DateDiff:eventEndDateTime,'m' -%}
-    {% if minutesUntilEnd >= 0 -%}
+    Calendar Id 1 is Rock's core Public calendar.
+{%- endcomment -%}
+{%- assign lookbackDays = 30 -%}
+{%- assign emptyMessage = 'There are no upcoming events.' -%}
 
-    {{ eventItemOccurrence.Name }}
+{%- assign nowDateTime = 'Now' | Date:'yyyy-MM-ddTHH:mm:ss' -%}
+{%- assign lookbackOffset = lookbackDays | Times:-1 -%}
+{%- assign startDate = 'Now' | DateAdd:lookbackOffset,'d' | Date:'yyyy-MM-dd' -%}
 
-    {% endif -%}
-{% endfor -%}
-{% endcalendarevents -%}
+{%- capture eventsMarkup -%}
+{%- calendarevents calendarid:'1' startdate:'{{ startDate }}' daterange:'6m' maxoccurrences:'500' -%}
+{%- for eventItemOccurrence in EventScheduledInstances -%}
+    {%- assign eventDurationMinutes = eventItemOccurrence.EventItemOccurrence.Schedule.DurationInMinutes | Default:0 | AsInteger -%}
+    {%- if eventDurationMinutes > 0 -%}
+        {%- assign eventEndDateTime = eventItemOccurrence.DateTime | DateAdd:eventDurationMinutes,'m' -%}
+    {%- else -%}
+        {%- assign eventEndDateTime = eventItemOccurrence.DateTime | Date:'yyyy-MM-dd' | DateAdd:1,'d' -%}
+    {%- endif -%}
+    {%- assign minutesUntilEnd = nowDateTime | DateDiff:eventEndDateTime,'m' -%}
+
+    {%- if minutesUntilEnd >= 0 -%}
+        <p>{{ eventItemOccurrence.Name | Escape }}</p>
+    {%- endif -%}
+{%- endfor -%}
+{%- endcalendarevents -%}
+{%- endcapture -%}
+
+{%- assign eventsMarkup = eventsMarkup | Trim -%}
+{%- if eventsMarkup != empty -%}
+    {{ eventsMarkup }}
+{%- else -%}
+    <p>{{ emptyMessage }}</p>
+{%- endif -%}

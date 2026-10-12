@@ -1,0 +1,63 @@
+{%- comment -%}
+    Meta Tags (include, for detail pages)
+    Adds the page title, description, Open Graph and X (Twitter) tags for one item,
+    such as an event, message, group or staff profile.
+
+    Inputs (assign before the include):
+      metaTitle         Required. Plain text or HTML.
+      metaDescription   Optional. HTML is fine; it is stripped and decoded.
+      metaImage         Optional. Absolute or root-relative URL ('/GetImage.ashx?...').
+      metaMaxLength     Description length. Default 160.
+      metaCard          X card type. Default 'summary_large_image' with an image, else 'summary'.
+      metaSetTitle      true (default) also sets the browser title with SetPageTitle.
+
+    Usage:
+      {%- assign metaTitle = Item.Title -%}
+      {%- assign metaDescription = Item.Content -%}
+      {%- assign metaImage = Item | Attribute:'Image','Url' -%}
+      {% include '~~/Assets/Lava/Utilities/seo/meta-tags.lava' %}
+
+    AddMetaTagToHead encodes the values itself, so nothing here is escaped first.
+    Pair with seo/page-meta.lava, which skips its page-level tags on detail pages.
+{%- endcomment -%}
+{%- assign metaTitleText = metaTitle | StripHtml | Replace:'&amp;','&' | Strip -%}
+{%- assign metaMaxLengthValue = metaMaxLength | Default:160 | AsInteger -%}
+
+{%- assign metaDescriptionText = metaDescription | StripHtml | StripNewlines | Replace:'&nbsp;',' ' | Replace:'&#160;',' ' -%}
+{%- assign metaDescriptionText = metaDescriptionText | Replace:'&amp;','&' | Replace:'&rsquo;',"'" | Replace:'&lsquo;',"'" | Replace:'&rdquo;','"' | Replace:'&ldquo;','"' | Replace:'&quot;','"' | Replace:'&hellip;','...' | Replace:'&mdash;','-' | Replace:'&ndash;','-' -%}
+{%- assign metaDescriptionText = metaDescriptionText | Replace:'  ',' ' | Strip | Truncate:metaMaxLengthValue,'...' -%}
+
+{%- comment -%} Social networks need an absolute image URL. {%- endcomment -%}
+{%- assign metaImageUrl = metaImage | Default:'' | Strip -%}
+{%- if metaImageUrl startswith '/' -%}
+    {%- assign metaPublicRoot = 'Global' | Attribute:'PublicApplicationRoot' | Strip -%}
+    {%- assign metaRootEnd = metaPublicRoot | Right:1 -%}
+    {%- if metaRootEnd == '/' -%}
+        {%- assign metaImageUrl = metaImageUrl | ReplaceFirst:'/','' -%}
+    {%- endif -%}
+    {%- assign metaImageUrl = metaPublicRoot | Append:metaImageUrl -%}
+{%- endif -%}
+
+{%- assign metaCardValue = metaCard | Default:'' -%}
+{%- if metaCardValue == empty -%}
+    {%- if metaImageUrl != empty -%}{%- assign metaCardValue = 'summary_large_image' -%}{%- else -%}{%- assign metaCardValue = 'summary' -%}{%- endif -%}
+{%- endif -%}
+
+{%- if metaTitleText != empty -%}
+    {%- unless metaSetTitle == false or metaSetTitle == 'false' -%}{{ metaTitleText | SetPageTitle }}{%- endunless -%}
+    {{- metaTitleText | AddMetaTagToHead:'property','og:title' -}}
+    {{- metaTitleText | AddMetaTagToHead:'name','twitter:title' -}}
+{%- endif -%}
+
+{%- if metaDescriptionText != empty -%}
+    {{- metaDescriptionText | AddMetaTagToHead:'name','description' -}}
+    {{- metaDescriptionText | AddMetaTagToHead:'property','og:description' -}}
+    {{- metaDescriptionText | AddMetaTagToHead:'name','twitter:description' -}}
+{%- endif -%}
+
+{%- if metaImageUrl != empty -%}
+    {{- metaImageUrl | AddMetaTagToHead:'property','og:image' -}}
+    {{- metaImageUrl | AddMetaTagToHead:'name','twitter:image' -}}
+{%- endif -%}
+
+{{- metaCardValue | AddMetaTagToHead:'name','twitter:card' -}}

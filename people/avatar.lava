@@ -1,0 +1,51 @@
+{%- comment -%}
+    Person Avatar (include)
+    Prints a person's photo, falling back to initials, then to a person icon.
+
+    Inputs (assign before the include):
+      avatarPerson       Person object (required). Use alias.Person when you have an alias.
+      avatarSize         Display size in px. Default 96. The image is requested at 2x.
+      avatarClass        Classes for the <img> or <span>, e.g. 'rounded-circle bg-primary text-white'.
+      avatarDecorative   true (default) when the name is already shown next to the avatar.
+                         false gives the avatar the person's name as its accessible name.
+      avatarFallback     'initials' (default) or 'rock' to use Rock's generated avatar (PhotoUrl).
+      avatarIcon         Icon classes for the last fallback. Default 'fa fa-user'.
+
+    Usage:
+      {%- assign avatarPerson = member.Person -%}
+      {%- assign avatarClass = 'rounded-circle' -%}
+      {% include '~~/Assets/Lava/Utilities/people/avatar.lava' %}
+
+    Inputs carry over to the next include, so re-assign every input you change.
+{%- endcomment -%}
+{%- assign avatarSizeValue = avatarSize | Default:96 | AsInteger -%}
+{%- assign avatarRequestSize = avatarSizeValue | Times:2 -%}
+{%- assign avatarFallbackValue = avatarFallback | Default:'initials' -%}
+{%- assign avatarIconValue = avatarIcon | Default:'fa fa-user' -%}
+{%- assign avatarIsDecorative = true -%}
+{%- if avatarDecorative == false or avatarDecorative == 'false' -%}{%- assign avatarIsDecorative = false -%}{%- endif -%}
+
+{%- assign avatarName = '' -%}
+{%- assign avatarInitials = '' -%}
+{%- assign avatarSrc = '' -%}
+
+{%- if avatarPerson -%}
+    {%- assign avatarName = avatarPerson.FullName | Trim -%}
+    {%- assign avatarFirstInitial = avatarPerson.NickName | Default:avatarPerson.FirstName | Slice:0,1 -%}
+    {%- assign avatarLastInitial = avatarPerson.LastName | Slice:0,1 -%}
+    {%- assign avatarInitials = avatarFirstInitial | Append:avatarLastInitial | Upcase -%}
+
+    {%- if avatarPerson.PhotoId and avatarPerson.PhotoId != empty -%}
+        {%- assign avatarSrc = '/GetImage.ashx?id=' | Append:avatarPerson.PhotoId | Append:'&width=' | Append:avatarRequestSize | Append:'&height=' | Append:avatarRequestSize | Append:'&mode=crop' -%}
+    {%- elseif avatarFallbackValue == 'rock' -%}
+        {%- assign avatarSrc = avatarPerson.PhotoUrl -%}
+    {%- endif -%}
+{%- endif -%}
+
+{%- if avatarSrc != empty -%}
+<img src="{{ avatarSrc | Escape }}" width="{{ avatarSizeValue }}" height="{{ avatarSizeValue }}" class="{{ avatarClass }}" loading="lazy" alt="{% unless avatarIsDecorative %}{{ avatarName | Escape }}{% endunless %}">
+{%- elseif avatarInitials != empty -%}
+<span class="{{ avatarClass }}"{% if avatarIsDecorative %} aria-hidden="true"{% else %} role="img" aria-label="{{ avatarName | Escape }}"{% endif %}>{{ avatarInitials | Escape }}</span>
+{%- else -%}
+<span class="{{ avatarClass }}"{% if avatarIsDecorative %} aria-hidden="true"{% else %} role="img" aria-label="Person"{% endif %}><i class="{{ avatarIconValue }}" aria-hidden="true"></i></span>
+{%- endif -%}

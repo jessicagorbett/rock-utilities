@@ -1,0 +1,115 @@
+{%- comment -%}
+    Button Group (Attribute Matrix template)
+    Renders one button per matrix item and picks behavior and icons from the link.
+
+    Matrix attribute keys:
+      DisplayText       Button text.
+      DescriptiveText   Optional accessible name and title, e.g. "Register for Fall Retreat".
+      Link              URL (RawValue is used).
+      Style             Button classes, e.g. "btn-primary" (Value is used).
+
+    Detection order: download > on-page anchor > map > internal > external.
+      download   File extensions below, or Rock GetFile/GetImage handlers. Adds `download`.
+      anchor     Starts with '#'.
+      map        Contains 'maps.' or '/maps'. Opens in a new tab.
+      internal   Relative, mailto:, tel:, or same host as PublicApplicationRoot.
+      external   Everything else. Opens in a new tab with rel="noopener noreferrer".
+
+    Settings:
+      iconPrefix      Font Awesome classes shared by every icon.
+      srOnlyClass     Visually hidden class for screen-reader-only text.
+      downloadTypes   File extensions treated as downloads.
+{%- endcomment -%}
+{%- assign iconPrefix = 'fa-sharp fa-solid fa-fw' -%}
+{%- assign srOnlyClass = 'sr-only' -%}
+{%- assign downloadTypes = 'pdf,ppt,pptx,xls,xlsx,csv,doc,docx,zip' | Split:',' -%}
+
+{%- if AttributeMatrixItems != empty -%}
+    {%- assign siteHost = 'Global' | Attribute:'PublicApplicationRoot' | Downcase | Remove:'https://' | Remove:'http://' | Remove:'www.' | Split:'/' | First -%}
+
+    {%- for attributeMatrixItem in AttributeMatrixItems -%}
+        {%- assign btnDisplayText = attributeMatrixItem | Attribute:'DisplayText' | Trim -%}
+        {%- assign btnDescriptiveText = attributeMatrixItem | Attribute:'DescriptiveText' | Trim -%}
+        {%- assign btnUrl = attributeMatrixItem | Attribute:'Link','RawValue' | Trim -%}
+        {%- assign btnStyle = attributeMatrixItem | Attribute:'Style','Value' -%}
+        {%- if btnUrl == empty -%}{%- continue -%}{%- endif -%}
+        {%- assign btnUrlLower = btnUrl | Downcase -%}
+
+        {%- comment -%} Reset per item so nothing carries over from the previous button. {%- endcomment -%}
+        {%- assign btnTarget = '' -%}
+        {%- assign btnDownload = false -%}
+        {%- assign btnDirection = '' -%}
+        {%- assign btnIconDefault = 'chevron-right' -%}
+        {%- assign btnIconInteract = 'arrow-right' -%}
+        {%- assign btnIconAlt = '' -%}
+        {%- assign btnIconFirst = false -%}
+
+        {%- assign isDownload = false -%}
+        {%- assign downloadExt = btnUrlLower | Split:'?' | First | Split:'.' | Last -%}
+        {%- if downloadTypes contains downloadExt or btnUrlLower contains 'getfile.ashx' or btnUrlLower contains 'getimage.ashx' -%}
+            {%- assign isDownload = true -%}
+        {%- endif -%}
+
+        {%- assign isAnchor = false -%}
+        {%- if btnUrlLower startswith '#' -%}{%- assign isAnchor = true -%}{%- endif -%}
+
+        {%- assign isMap = false -%}
+        {%- if btnUrlLower contains 'maps.' or btnUrlLower contains '/maps' -%}{%- assign isMap = true -%}{%- endif -%}
+
+        {%- assign isInternal = false -%}
+        {%- if btnUrlLower startswith '/' or btnUrlLower startswith 'mailto:' or btnUrlLower startswith 'tel:' -%}
+            {%- assign isInternal = true -%}
+        {%- elseif siteHost != empty -%}
+            {%- assign urlHost = btnUrlLower | Remove:'https://' | Remove:'http://' | Remove:'www.' | Split:'/' | First | Split:'?' | First -%}
+            {%- if urlHost == siteHost -%}{%- assign isInternal = true -%}{%- endif -%}
+        {%- endif -%}
+
+        {%- if isDownload -%}
+            {%- assign btnDownload = true -%}
+            {%- assign btnDirection = 'btn-download' -%}
+            {%- assign btnIconDefault = 'download' -%}
+            {%- assign btnIconInteract = 'arrow-down' -%}
+            {%- assign btnIconAlt = '(download)' -%}
+            {%- assign btnIconFirst = true -%}
+        {%- elseif isAnchor -%}
+            {%- assign btnDirection = 'btn-down' -%}
+            {%- assign btnIconDefault = 'arrow-turn-down' -%}
+            {%- assign btnIconInteract = 'arrow-down-from-line' -%}
+            {%- assign btnIconAlt = '(jumps to a section on this page)' -%}
+        {%- elseif isMap -%}
+            {%- assign btnTarget = '_blank' -%}
+            {%- assign btnDirection = 'btn-i-left' -%}
+            {%- assign btnIconDefault = 'diamond-turn-right' -%}
+            {%- assign btnIconInteract = 'turn-right' -%}
+            {%- assign btnIconAlt = '(directions, opens in new tab)' -%}
+            {%- assign btnIconFirst = true -%}
+        {%- elseif isInternal == false -%}
+            {%- assign btnTarget = '_blank' -%}
+            {%- assign btnIconDefault = 'arrow-up-right' -%}
+            {%- assign btnIconInteract = 'arrow-up-right-from-square' -%}
+            {%- assign btnIconAlt = '(opens in new tab)' -%}
+        {%- endif -%}
+
+        {%- capture btnIcons -%}
+            <i class="{{ iconPrefix }} fa-{{ btnIconDefault }} btn-icon-default" aria-hidden="true"></i>
+            <i class="{{ iconPrefix }} fa-{{ btnIconInteract }} btn-icon-interact" aria-hidden="true"></i>
+        {%- endcapture -%}
+
+        {%- comment -%} An aria-label replaces the link text, so it has to carry the behavior hint too. {%- endcomment -%}
+        {%- assign btnAriaLabel = '' -%}
+        {%- if btnDescriptiveText != empty -%}
+            {%- assign btnAriaLabel = btnDescriptiveText -%}
+            {%- if btnIconAlt != empty -%}{%- assign btnAriaLabel = btnAriaLabel | Append:' ' | Append:btnIconAlt -%}{%- endif -%}
+        {%- endif -%}
+
+        <a href="{{ btnUrl | Escape }}" class="btn {{ btnStyle }} {{ btnDirection }}"
+            {%- if btnTarget != empty %} target="{{ btnTarget }}" rel="noopener noreferrer"{% endif -%}
+            {%- if btnDownload %} download{% endif -%}
+            {%- if btnAriaLabel != empty %} aria-label="{{ btnAriaLabel | Escape }}" title="{{ btnDescriptiveText | Escape }}"{% endif %}>
+            {%- if btnIconFirst -%}{{ btnIcons }}{%- endif -%}
+            {{ btnDisplayText | Escape }}
+            {%- if btnIconAlt != empty and btnAriaLabel == empty %}<span class="{{ srOnlyClass }}"> {{ btnIconAlt }}</span>{% endif -%}
+            {%- if btnIconFirst == false -%}{{ btnIcons }}{%- endif -%}
+        </a>
+    {%- endfor -%}
+{%- endif -%}

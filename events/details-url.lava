@@ -1,38 +1,53 @@
+{%- comment -%}
+    Event Details URL
+    Builds the best available detail link for each event occurrence.
 
-{% calendarevents calendarid:'1' daterange:'6m' maxoccurrences:'500' -%}
-{% assign EventItemOccurrences = EventScheduledInstances -%}
-{% assign eventItemOccurrenceCount = 0 -%}
+    Link priority:
+      1. The event item's Details URL (Rock core field). External URLs open in a new tab.
+      2. The block's Details Page setting (DetailsPage merge field), or detailsPage below.
 
-{% assign domain = 'Global' | Attribute:'PublicApplicationRoot' -%}
+    Settings:
+      detailsPage       Page to link to when an event has no Details URL.
+      detailsUrlStyle   'query' -> /events?EventOccurrenceId=12 (Rock core default)
+                        'path'  -> /events/12 (route with {EventOccurrenceId})
+      srOnlyClass       Visually hidden class for the "opens in new tab" text.
 
-{% for eventItemOccurrence in EventItemOccurrences -%}
-    {% assign occurrence = eventItemOccurrence.EventItemOccurrence -%}
-    {% assign eventItem = occurrence.EventItem -%}
-    {% assign eventName = eventItemOccurrence.Name | Default:eventItem.Name | Trim -%}
-    {% assign eventItemUrl = eventItem.DetailsUrl -%}
-    {% assign linkedDetailsPage = detailsPage -%}
-    {% assign detailUrl = '' %}
-    {% assign newtab = false -%}
+    Calendar Id 1 is Rock's core Public calendar.
+{%- endcomment -%}
+{%- assign detailsPage = DetailsPage | Default:'/events' -%}
+{%- assign detailsUrlStyle = 'query' -%}
+{%- assign srOnlyClass = 'sr-only' -%}
 
-    {% if eventItemUrl and eventItemUrl != empty -%}
-        {% assign detailUrl = eventItemUrl -%}
-        {% if detailUrl contains domain or detailUrl startswith '/' -%}
-        {% else -%}
-        {% assign newtab = true -%}
-        {% endif -%}
-    {% endif -%}
+{%- comment -%} Host of this site, without scheme or www, for internal link checks. {%- endcomment -%}
+{%- assign siteHost = 'Global' | Attribute:'PublicApplicationRoot' | Downcase | Remove:'https://' | Remove:'http://' | Remove:'www.' | Split:'/' | First -%}
 
-    {% if linkedDetailsPage and linkedDetailsPage != empty -%}
-        {% assign detailUrl = linkedDetailsPage | Append:'/' | Append:occurrence.Id -%}
-    {% endif -%}
+{%- calendarevents calendarid:'1' daterange:'6m' maxoccurrences:'500' -%}
+{%- for eventItemOccurrence in EventScheduledInstances -%}
+    {%- assign occurrence = eventItemOccurrence.EventItemOccurrence -%}
+    {%- assign eventName = eventItemOccurrence.Name | Default:occurrence.EventItem.Name | Trim -%}
+    {%- assign eventItemUrl = occurrence.EventItem.DetailsUrl | Trim -%}
+    {%- assign detailUrl = '' -%}
+    {%- assign newTab = false -%}
 
-    {% if detailUrl == empty -%}
-        {% assign detailUrl = '/Events/' | Append:occurrence.Id -%}
-    {% endif -%}
+    {%- if eventItemUrl != empty -%}
+        {%- assign detailUrl = eventItemUrl -%}
+        {%- assign urlLower = eventItemUrl | Downcase -%}
+        {%- if urlLower startswith 'http' -%}
+            {%- assign urlHost = urlLower | Remove:'https://' | Remove:'http://' | Remove:'www.' | Split:'/' | First | Split:'?' | First -%}
+            {%- if siteHost == empty or urlHost != siteHost -%}
+                {%- assign newTab = true -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- else -%}
+        {%- if detailsUrlStyle == 'path' -%}
+            {%- assign detailUrl = detailsPage | Append:'/' | Append:occurrence.Id -%}
+        {%- else -%}
+            {%- assign separator = '?' -%}
+            {%- if detailsPage contains '?' -%}{%- assign separator = '&' -%}{%- endif -%}
+            {%- assign detailUrl = detailsPage | Append:separator | Append:'EventOccurrenceId=' | Append:occurrence.Id -%}
+        {%- endif -%}
+    {%- endif -%}
 
-    {% if detailUrl != empty -%}<a href="{{ detailUrl }}" aria-label="View details for {{ eventName | Escape }}{% if newtab -%} in new tab{% endif -%}" {% if newtab -%}target="_blank"{% endif -%}>{% endif -%}
-    {{ eventItemOccurrence.Name }}
-    {% if detailUrl != empty -%}</a>{% endif -%}
-
-{% endfor -%}
-{% endcalendarevents -%}
+    <a href="{{ detailUrl | Escape }}"{% if newTab %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ eventName | Escape }}{% if newTab %}<span class="{{ srOnlyClass }}"> (opens in new tab)</span>{% endif %}</a>
+{%- endfor -%}
+{%- endcalendarevents -%}

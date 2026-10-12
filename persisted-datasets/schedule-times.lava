@@ -1,0 +1,112 @@
+{%- comment -%}
+    Schedule Times (Persisted Dataset build script)
+    Publishes the start times for active, public schedules in one category over the
+    next week, as a JSON array sorted by day and time. Uses only Rock core fields.
+    Set "Enabled Lava Commands" on the dataset to include Rock Entity.
+
+    A schedule that runs all 7 days becomes one "Daily" row; one that runs Monday
+    to Friday only becomes one "Weekdays" row. Everything else gets a row per day.
+    Only the first start time per day is used.
+
+    Settings:
+      categoryId   Schedule category Id, e.g. your "Service Times" category.
+      windowDays   How many days ahead to look. 7 covers every weekday once.
+
+    Output, per row:
+      scheduleId, name, description, day, startTime, sort
+
+    Refresh the dataset at least daily so "next week" stays current.
+{%- endcomment -%}
+{%- assign categoryId = 1 -%}
+{%- assign windowDays = 7 -%}
+
+{%- assign windowStart = 'Now' | Date:'yyyy-MM-ddTHH:mm:ss' -%}
+{%- assign windowEnd = 'Now' | DateAdd:windowDays,'d' | Date:'yyyy-MM-ddTHH:mm:ss' -%}
+
+{%- comment -%}
+    Rows are collected as "sortKey^^^json" separated by "~~~", then sorted as strings.
+    Sort key = group digit (0 Daily, 1 Weekdays, 2-8 Sunday-Saturday) + HHmm.
+{%- endcomment -%}
+{%- assign rowList = '' -%}
+
+{%- schedule where:'CategoryId == {{ categoryId }} && IsActive == true && IsPublic == true' securityenabled:'false' -%}
+    {%- for schedule in scheduleItems -%}
+        {%- assign seenDays = '|' -%}
+        {%- assign dayRows = '' -%}
+        {%- assign dayCount = 0 -%}
+        {%- assign occurrences = schedule.iCalendarContent | DatesFromICal:'All' -%}
+
+        {%- for occurrence in occurrences -%}
+            {%- assign inWindow = occurrence | IsDateBetween:windowStart,windowEnd -%}
+            {%- unless inWindow -%}{%- continue -%}{%- endunless -%}
+
+            {%- assign dayName = occurrence | Date:'dddd' -%}
+            {%- assign dayToken = '|' | Append:dayName | Append:'|' -%}
+            {%- if seenDays contains dayToken -%}{%- continue -%}{%- endif -%}
+
+            {%- assign seenDays = seenDays | Append:dayName | Append:'|' -%}
+            {%- assign dayCount = dayCount | Plus:1 -%}
+            {%- case dayName -%}
+                {%- when 'Sunday' -%}{%- assign dayIndex = '2' -%}
+                {%- when 'Monday' -%}{%- assign dayIndex = '3' -%}
+                {%- when 'Tuesday' -%}{%- assign dayIndex = '4' -%}
+                {%- when 'Wednesday' -%}{%- assign dayIndex = '5' -%}
+                {%- when 'Thursday' -%}{%- assign dayIndex = '6' -%}
+                {%- when 'Friday' -%}{%- assign dayIndex = '7' -%}
+                {%- else -%}{%- assign dayIndex = '8' -%}
+            {%- endcase -%}
+            {%- assign timeLabel = occurrence | Date:'h:mm tt' -%}
+            {%- assign timeSort = occurrence | Date:'HHmm' -%}
+            {%- assign dayRows = dayRows | Append:dayName | Append:'^' | Append:dayIndex | Append:'^' | Append:timeLabel | Append:'^' | Append:timeSort | Append:'|' -%}
+        {%- endfor -%}
+
+        {%- assign hasWeekend = false -%}
+        {%- if seenDays contains '|Saturday|' or seenDays contains '|Sunday|' -%}{%- assign hasWeekend = true -%}{%- endif -%}
+
+        {%- assign collapsedLabel = '' -%}
+        {%- if dayCount == 7 -%}
+            {%- assign collapsedLabel = 'Daily' -%}
+            {%- assign collapsedIndex = '0' -%}
+        {%- elseif dayCount == 5 and hasWeekend == false -%}
+            {%- assign collapsedLabel = 'Weekdays' -%}
+            {%- assign collapsedIndex = '1' -%}
+        {%- endif -%}
+
+        {%- assign dayRowList = dayRows | Split:'|' -%}
+        {%- for dayRow in dayRowList -%}
+            {%- if dayRow == empty -%}{%- continue -%}{%- endif -%}
+            {%- assign parts = dayRow | Split:'^' -%}
+            {%- assign rowDay = parts[0] -%}
+            {%- assign rowIndex = parts[1] -%}
+            {%- if collapsedLabel != empty -%}
+                {%- assign rowDay = collapsedLabel -%}
+                {%- assign rowIndex = collapsedIndex -%}
+            {%- endif -%}
+            {%- assign rowSort = rowIndex | Append:parts[3] -%}
+
+            {%- capture json -%}
+                {
+                    "scheduleId": {{ schedule.Id | ToJSON }},
+                    "name": {{ schedule.Name | ToJSON }},
+                    "description": {{ schedule.Description | ToJSON }},
+                    "day": {{ rowDay | ToJSON }},
+                    "startTime": {{ parts[2] | ToJSON }},
+                    "sort": {{ rowSort | ToJSON }}
+                }
+            {%- endcapture -%}
+            {%- assign rowList = rowList | Append:rowSort | Append:'^^^' | Append:json | Append:'~~~' -%}
+
+            {%- comment -%} A collapsed schedule only needs one row. {%- endcomment -%}
+            {%- if collapsedLabel != empty -%}{%- break -%}{%- endif -%}
+        {%- endfor -%}
+    {%- endfor -%}
+{%- endschedule -%}
+
+{%- assign sortedRows = rowList | Split:'~~~' | Sort -%}
+{%- capture out -%}
+    {%- for row in sortedRows -%}
+        {%- if row == empty -%}{%- continue -%}{%- endif -%}
+        ,{{ row | Split:'^^^' | Last }}
+    {%- endfor -%}
+{%- endcapture -%}
+[{{ out | Strip | ReplaceFirst:',','' }}]

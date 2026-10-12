@@ -1,0 +1,37 @@
+{%- comment -%}
+    Light/Dark Image (include)
+    Prints a <picture> that swaps to a dark-mode image when the visitor's OS is in dark mode.
+    Only one image downloads.
+
+    Inputs (assign before the include):
+      imageLight   URL for light mode (required).
+      imageDark    URL for dark mode. Empty prints a plain <img> of imageLight.
+      imageAlt     Alt text. Leave empty for decorative images.
+      imageClass   Classes for the <img>.
+      imageWidth   Optional intrinsic width, to reserve space and avoid layout shift.
+      imageHeight  Optional intrinsic height.
+
+    Usage (site logo with a light-on-dark variant):
+      {%- assign imageLight = CurrentPage.Layout.Site.SiteLogoBinaryFileId | ImageUrl -%}
+      {%- assign imageDark = CurrentPage.Layout.Site | Attribute:'SiteLogoLight','RawValue' | ImageUrl -%}
+      {%- assign imageAlt = 'Global' | Attribute:'OrganizationName' -%}
+      {% include '~~/Assets/Lava/Utilities/theme/light-dark-image.lava' %}
+
+    A <picture> follows the OS setting only. When a section forces a scheme with
+    data-bs-theme, render two images with .show-in-light/.show-in-dark from
+    theme/light-dark.css instead.
+{%- endcomment -%}
+{%- capture imageAttributes -%}
+src="{{ imageLight | Escape }}" alt="{{ imageAlt | Escape }}"{% if imageClass and imageClass != empty %} class="{{ imageClass }}"{% endif %}{% if imageWidth and imageWidth != empty %} width="{{ imageWidth }}"{% endif %}{% if imageHeight and imageHeight != empty %} height="{{ imageHeight }}"{% endif %}
+{%- endcapture -%}
+
+{%- if imageLight and imageLight != empty -%}
+    {%- if imageDark and imageDark != empty and imageDark != imageLight -%}
+<picture>
+    <source srcset="{{ imageDark | Escape }}" media="(prefers-color-scheme: dark)">
+    <img {{ imageAttributes }}>
+</picture>
+    {%- else -%}
+<img {{ imageAttributes }}>
+    {%- endif -%}
+{%- endif -%}

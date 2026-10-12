@@ -1,0 +1,83 @@
+{%- comment -%}
+    Page Meta (layout <head>)
+    Site-wide Open Graph and X (Twitter) tags built from Rock core page and site fields.
+    Load it in the master page head, e.g.
+      <Rock:Lava ID="PageMeta" runat="server">{% include '~~/Assets/Lava/Utilities/seo/page-meta.lava' %}</Rock:Lava>
+
+    Sources (all core unless noted):
+      Title         Page Title, then Browser Title; with Organization Name as og:site_name.
+      Description   Page Description.
+      Image         Optional page attribute (shareImageKey), then the site logo.
+      URL           Current page URL.
+
+    Settings:
+      shareImageKey   Page attribute key for a share image. Leave as-is if unused.
+      xHandle         Site X handle, e.g. '@church'. Empty skips twitter:site.
+      themeColor      Optional browser UI color for light and dark mode.
+      detailParams    Page parameters that mean "this is a detail page". When one is present
+                      the item's block is expected to add its own tags with seo/meta-tags.lava,
+                      so the title, description and image tags are skipped here to avoid duplicates.
+{%- endcomment -%}
+{%- assign shareImageKey = 'ShareImage' -%}
+{%- assign xHandle = '' -%}
+{%- assign themeColorLight = '' -%}
+{%- assign themeColorDark = '' -%}
+{%- assign detailParams = 'EventOccurrenceId,ContentItemId,Item,Slug,GroupId,PersonId' | Split:',' -%}
+
+{%- assign isDetailPage = false -%}
+{%- for detailParam in detailParams -%}
+    {%- assign detailValue = 'Global' | PageParameter:detailParam -%}
+    {%- if detailValue and detailValue != empty -%}{%- assign isDetailPage = true -%}{%- break -%}{%- endif -%}
+{%- endfor -%}
+
+{%- assign publicRoot = 'Global' | Attribute:'PublicApplicationRoot' | Strip -%}
+{%- assign publicRootEnd = publicRoot | Right:1 -%}
+{%- if publicRootEnd != '/' -%}{%- assign publicRoot = publicRoot | Append:'/' -%}{%- endif -%}
+
+{%- assign organizationName = 'Global' | Attribute:'OrganizationName' -%}
+{%- assign pageUrl = 'Global' | Page:'Url' -%}
+{%- assign pageTitle = CurrentPage.PageTitle | Default:CurrentPage.BrowserTitle | Strip -%}
+{%- assign pageDescription = CurrentPage.Description | StripHtml | Strip -%}
+
+{%- assign shareImage = CurrentPage | Attribute:shareImageKey,'Url' | Strip -%}
+{%- if shareImage == empty and CurrentPage.Layout.Site.SiteLogoBinaryFileId -%}
+    {%- assign shareImage = 'GetImage.ashx?id=' | Append:CurrentPage.Layout.Site.SiteLogoBinaryFileId -%}
+{%- endif -%}
+{%- if shareImage != empty -%}
+    {%- unless shareImage startswith 'http' -%}
+        {%- assign shareImage = shareImage | ReplaceFirst:'~/','' -%}
+        {%- if shareImage startswith '/' -%}{%- assign shareImage = shareImage | ReplaceFirst:'/','' -%}{%- endif -%}
+        {%- assign shareImage = publicRoot | Append:shareImage -%}
+    {%- endunless -%}
+{%- endif -%}
+
+{%- if themeColorLight != empty %}
+<meta name="theme-color" content="{{ themeColorLight | Escape }}" media="(prefers-color-scheme: light)">
+{%- endif -%}
+{%- if themeColorDark != empty %}
+<meta name="theme-color" content="{{ themeColorDark | Escape }}" media="(prefers-color-scheme: dark)">
+{%- endif %}
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ pageUrl | Escape }}">
+<meta property="og:site_name" content="{{ organizationName | Escape }}">
+{%- if xHandle != empty %}
+<meta name="twitter:site" content="{{ xHandle | Escape }}">
+{%- endif -%}
+
+{%- unless isDetailPage -%}
+{%- if pageTitle != empty %}
+<meta property="og:title" content="{{ pageTitle | Escape }}">
+<meta name="twitter:title" content="{{ pageTitle | Escape }}">
+{%- endif -%}
+{%- if pageDescription != empty %}
+<meta property="og:description" content="{{ pageDescription | Escape }}">
+<meta name="twitter:description" content="{{ pageDescription | Escape }}">
+{%- endif -%}
+{%- if shareImage != empty %}
+<meta property="og:image" content="{{ shareImage | Escape }}">
+<meta name="twitter:image" content="{{ shareImage | Escape }}">
+<meta name="twitter:card" content="summary_large_image">
+{%- else %}
+<meta name="twitter:card" content="summary">
+{%- endif -%}
+{%- endunless %}

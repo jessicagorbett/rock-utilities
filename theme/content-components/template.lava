@@ -1,0 +1,106 @@
+{%- comment -%}
+    Content Component Template (starter)
+    The skeleton for a new content component: read the section settings, loop the
+    items, capture the markup, then render the section only when it has content.
+
+    Merge fields from Rock's Content Component block:
+      ContentChannel   The component's channel (section-level settings live here).
+      Items            The channel's items, already filtered and ordered by the block.
+
+    Section attribute keys (ContentChannel). Missing ones fall back to the defaults below.
+      ContentWidth        'container', 'container-readable' or 'container-fluid'
+      ContentAlign        Text/flex alignment: 'start', 'center' or 'end'
+      VerticalPadding     Padding classes, e.g. 'py-5'
+      HorizontalPadding   Padding classes, e.g. 'px-3'
+      SpaceAfter          Margin classes, e.g. 'mb-5'
+      BgColor             Background name; rendered as bg-{value}
+      AnchorName          Optional id for in-page links
+      Eyebrow, Heading, Description
+      ColumnCountMobile, ColumnCountTablet, ColumnCountLaptop, ColumnCountDesktop
+
+    Item attribute keys: rename the item block to match your channel.
+{%- endcomment -%}
+
+{%- comment -%} ---------- Section settings ---------- {%- endcomment -%}
+{%- assign width = ContentChannel | Attribute:'ContentWidth','RawValue' | Default:'container' -%}
+{%- assign verticalPadding = ContentChannel | Attribute:'VerticalPadding','RawValue' -%}
+{%- assign horizontalPadding = ContentChannel | Attribute:'HorizontalPadding','RawValue' -%}
+{%- assign spaceAfter = ContentChannel | Attribute:'SpaceAfter','RawValue' -%}
+{%- assign bgColor = ContentChannel | Attribute:'BgColor','Value' | Downcase | Replace:' ','-' -%}
+{%- assign anchor = ContentChannel | Attribute:'AnchorName' | Trim | Downcase | Replace:' ','-' | Escape -%}
+{%- assign eyebrow = ContentChannel | Attribute:'Eyebrow' | Trim -%}
+{%- assign heading = ContentChannel | Attribute:'Heading' | Trim -%}
+{%- assign description = ContentChannel | Attribute:'Description' | Trim -%}
+
+{%- comment -%} Accept either 'start/center/end' or 'Left/Center/Right'. {%- endcomment -%}
+{%- assign alignment = ContentChannel | Attribute:'ContentAlign','RawValue' | Downcase | Default:'start' -%}
+{%- case alignment -%}
+    {%- when 'left' -%}{%- assign alignment = 'start' -%}
+    {%- when 'right' -%}{%- assign alignment = 'end' -%}
+{%- endcase -%}
+
+{%- comment -%} Columns per breakpoint, never zero. {%- endcomment -%}
+{%- assign countXs = ContentChannel | Attribute:'ColumnCountMobile','Value' | AsInteger | Default:1 -%}
+{%- assign countMd = ContentChannel | Attribute:'ColumnCountTablet','Value' | AsInteger | Default:2 -%}
+{%- assign countLg = ContentChannel | Attribute:'ColumnCountLaptop','Value' | AsInteger | Default:3 -%}
+{%- assign countXl = ContentChannel | Attribute:'ColumnCountDesktop','Value' | AsInteger | Default:3 -%}
+{%- if countXs < 1 -%}{%- assign countXs = 1 -%}{%- endif -%}
+{%- if countMd < 1 -%}{%- assign countMd = 1 -%}{%- endif -%}
+{%- if countLg < 1 -%}{%- assign countLg = 1 -%}{%- endif -%}
+{%- if countXl < 1 -%}{%- assign countXl = 1 -%}{%- endif -%}
+{%- assign colXs = 12 | DividedBy:countXs -%}
+{%- assign colMd = 12 | DividedBy:countMd -%}
+{%- assign colLg = 12 | DividedBy:countLg -%}
+{%- assign colXl = 12 | DividedBy:countXl -%}
+
+{%- comment -%} Items are h3 under a section heading, otherwise h2. {%- endcomment -%}
+{%- assign itemHeadingLevel = 'h2' -%}
+{%- if heading != empty -%}{%- assign itemHeadingLevel = 'h3' -%}{%- endif -%}
+
+{%- comment -%} ---------- Section header ---------- {%- endcomment -%}
+{%- capture headerMarkup -%}
+    {%- if eyebrow != empty -%}<p class="lead">{{ eyebrow }}</p>{%- endif -%}
+    {%- if heading != empty -%}<h2>{{ heading }}</h2>{%- endif -%}
+    {%- if description != empty -%}<div>{{ description }}</div>{%- endif -%}
+{%- endcapture -%}
+{%- assign headerMarkup = headerMarkup | Trim -%}
+
+{%- comment -%} ---------- Items ---------- {%- endcomment -%}
+{%- capture itemsMarkup -%}
+    {%- for item in Items -%}
+        {%- assign itemTitle = item.Title | Trim -%}
+        {%- assign itemContent = item.Content | Trim -%}
+        {%- assign itemImage = item | Attribute:'Image','Url' -%}
+        {%- assign itemImageAlt = item | Attribute:'ImageAltText' | Trim -%}
+
+        {%- comment -%} Skip items with nothing to show. {%- endcomment -%}
+        {%- if itemTitle == empty and itemContent == empty and itemImage == empty -%}{%- continue -%}{%- endif -%}
+
+        <div class="col-{{ colXs }} col-md-{{ colMd }} col-lg-{{ colLg }} col-xl-{{ colXl }}{% if forloop.first %} is-first{% endif %}{% if forloop.last %} is-last{% endif %}">
+            {%- if itemImage != empty -%}
+                <img src="{{ itemImage | Escape }}" alt="{{ itemImageAlt | Escape }}" loading="lazy" class="img-fluid mb-3">
+            {%- endif -%}
+            {%- if itemTitle != empty -%}<{{ itemHeadingLevel }}>{{ itemTitle }}</{{ itemHeadingLevel }}>{%- endif -%}
+            {%- if itemContent != empty -%}<div>{{ itemContent }}</div>{%- endif -%}
+        </div>
+    {%- endfor -%}
+{%- endcapture -%}
+{%- assign itemsMarkup = itemsMarkup | Trim -%}
+
+{%- comment -%} ---------- Render ---------- {%- endcomment -%}
+{%- if headerMarkup != empty or itemsMarkup != empty -%}
+<section{% if anchor != empty %} id="{{ anchor }}"{% endif %} class="content-component {{ verticalPadding }} {{ horizontalPadding }} {{ spaceAfter }}{% if bgColor != empty %} bg-{{ bgColor }}{% endif %}">
+    <div class="{{ width }}">
+        {%- if headerMarkup != empty -%}
+        <div class="d-flex flex-column align-items-{{ alignment }} text-{{ alignment }} mb-4">
+            {{ headerMarkup }}
+        </div>
+        {%- endif -%}
+        {%- if itemsMarkup != empty -%}
+        <div class="row justify-content-{{ alignment }} g-4">
+            {{ itemsMarkup }}
+        </div>
+        {%- endif -%}
+    </div>
+</section>
+{%- endif -%}

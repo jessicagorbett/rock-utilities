@@ -1,0 +1,82 @@
+{%- comment -%}
+    Content Channel Items (Persisted Dataset build script)
+    Publishes a channel's approved, active items as a JSON array, using only Rock core
+    fields. Set "Enabled Lava Commands" on the dataset to include Rock Entity.
+
+    Settings:
+      channelId       Content Channel Id.
+      itemLimit       Maximum items. 0 for no limit.
+      imageKey        Item attribute key for an image. Empty to skip.
+      summaryLength   Length of the plain-text summary.
+      urlPrefix       Route the item slug is appended to, e.g. '/blog/'. Empty leaves url blank.
+
+    Output, per item:
+      id, guid, title, slug, url, startDate, startDateLabel, expireDate,
+      summary, image, parentTitle, parentSlug, order
+
+    Read it in Lava:
+      {%- assign items = 'your-dataset-key' | PersistedDataset -%}
+      {%- for item in items -%}{{ item.title }}{%- endfor -%}
+
+    Status 2 is Rock core "Approved". Channels that don't require approval save
+    items as Approved, so the filter is safe for them too.
+{%- endcomment -%}
+{%- assign channelId = 1 -%}
+{%- assign itemLimit = 0 -%}
+{%- assign imageKey = 'Image' -%}
+{%- assign summaryLength = 200 -%}
+{%- assign urlPrefix = '' -%}
+
+{%- assign nowDateTime = 'Now' | Date:'yyyy-MM-ddTHH:mm:ss' -%}
+
+{%- capture out -%}
+    {%- contentchannelitem where:'ContentChannelId == {{ channelId }} && Status == 2 && StartDateTime <= "{{ nowDateTime }}"' sort:'StartDateTime desc' securityenabled:'false' iterator:'Items' -%}
+        {%- assign itemCount = 0 -%}
+        {%- for item in Items -%}
+            {%- if item.ExpireDateTime -%}
+                {%- assign minutesUntilExpire = nowDateTime | DateDiff:item.ExpireDateTime,'m' -%}
+                {%- if minutesUntilExpire < 0 -%}{%- continue -%}{%- endif -%}
+            {%- endif -%}
+            {%- if itemLimit > 0 and itemCount >= itemLimit -%}{%- break -%}{%- endif -%}
+            {%- assign itemCount = itemCount | Plus:1 -%}
+
+            {%- assign itemSlug = item.PrimarySlug | Trim -%}
+            {%- assign itemUrl = '' -%}
+            {%- if urlPrefix != empty and itemSlug != empty -%}
+                {%- assign itemUrl = urlPrefix | Append:itemSlug -%}
+            {%- endif -%}
+
+            {%- assign itemImage = '' -%}
+            {%- if imageKey != empty -%}
+                {%- assign itemImage = item | Attribute:imageKey,'RawValue' | ImageUrl -%}
+            {%- endif -%}
+
+            {%- assign itemSummary = item.Content | StripHtml | StripNewlines | Replace:'&nbsp;',' ' | Replace:'&amp;','&' | Strip | Truncate:summaryLength,'...' -%}
+
+            {%- assign parent = item.ParentItems | First | Property:'ContentChannelItem' -%}
+            {%- assign parentTitle = '' -%}
+            {%- assign parentSlug = '' -%}
+            {%- if parent -%}
+                {%- assign parentTitle = parent.Title -%}
+                {%- assign parentSlug = parent.PrimarySlug | Trim -%}
+            {%- endif -%}
+
+            ,{
+                "id": {{ item.Id | ToJSON }},
+                "guid": {{ item.Guid | ToJSON }},
+                "title": {{ item.Title | ToJSON }},
+                "slug": {{ itemSlug | ToJSON }},
+                "url": {{ itemUrl | ToJSON }},
+                "startDate": {{ item.StartDateTime | Date:'yyyy-MM-ddTHH:mm:ss' | ToJSON }},
+                "startDateLabel": {{ item.StartDateTime | Date:'MMMM d, yyyy' | ToJSON }},
+                "expireDate": {{ item.ExpireDateTime | Date:'yyyy-MM-ddTHH:mm:ss' | ToJSON }},
+                "summary": {{ itemSummary | ToJSON }},
+                "image": {{ itemImage | ToJSON }},
+                "parentTitle": {{ parentTitle | ToJSON }},
+                "parentSlug": {{ parentSlug | ToJSON }},
+                "order": {{ item.Order | ToJSON }}
+            }
+        {%- endfor -%}
+    {%- endcontentchannelitem -%}
+{%- endcapture -%}
+[{{ out | Strip | ReplaceFirst:',','' }}]

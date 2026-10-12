@@ -1,0 +1,56 @@
+{%- comment -%}
+    Page Route Resolve (include)
+    Picks a link from a Page, File, or URL attribute and prints the link attributes
+    (href, plus target/rel/download when needed) for an <a> tag.
+
+    Inputs (assign before the include):
+      linkPage   Page attribute RawValue ("pageGuid,routeGuid"), a page Id, or empty.
+      linkFile   File attribute RawValue (BinaryFile Guid), or empty.
+      linkUrl    Plain URL, or empty.
+
+    Priority: Page > File > URL. An unset page resolves to '/page/0', which is ignored.
+    Prints nothing when no link is found, so check the output before rendering the <a>.
+
+    Usage:
+      {%- assign linkPage = item | Attribute:'Page','RawValue' -%}
+      {%- assign linkFile = item | Attribute:'File','RawValue' -%}
+      {%- assign linkUrl = item | Attribute:'Url','RawValue' -%}
+      {%- capture linkAttributes -%}{% include '~~/Assets/Lava/Utilities/links/page-route.lava' %}{%- endcapture -%}
+      {%- if linkAttributes != empty -%}<a {{ linkAttributes }} class="tile">...</a>{%- endif -%}
+{%- endcomment -%}
+{%- assign linkHref = '' -%}
+{%- assign linkIsDownload = false -%}
+{%- assign linkIsExternal = false -%}
+
+{%- assign linkPageRoute = '' -%}
+{%- if linkPage and linkPage != empty -%}
+    {%- assign linkPageRoute = linkPage | PageRoute -%}
+{%- endif -%}
+
+{%- if linkPageRoute != empty and linkPageRoute != '/page/0' -%}
+    {%- assign linkHref = linkPageRoute -%}
+{%- elseif linkFile and linkFile != empty -%}
+    {%- assign linkHref = '/GetFile.ashx?guid=' | Append:linkFile -%}
+    {%- assign linkIsDownload = true -%}
+{%- elseif linkUrl and linkUrl != empty -%}
+    {%- assign linkHref = linkUrl | Trim -%}
+    {%- assign linkLower = linkHref | Downcase -%}
+
+    {%- assign linkExt = linkLower | Split:'?' | First | Split:'.' | Last -%}
+    {%- assign linkDownloadTypes = 'pdf,ppt,pptx,xls,xlsx,csv,doc,docx,zip' | Split:',' -%}
+    {%- if linkDownloadTypes contains linkExt or linkLower contains 'getfile.ashx' -%}
+        {%- assign linkIsDownload = true -%}
+    {%- endif -%}
+
+    {%- if linkLower startswith 'http' -%}
+        {%- assign linkSiteHost = 'Global' | Attribute:'PublicApplicationRoot' | Downcase | Remove:'https://' | Remove:'http://' | Remove:'www.' | Split:'/' | First -%}
+        {%- assign linkHost = linkLower | Remove:'https://' | Remove:'http://' | Remove:'www.' | Split:'/' | First | Split:'?' | First -%}
+        {%- if linkSiteHost == empty or linkHost != linkSiteHost -%}
+            {%- assign linkIsExternal = true -%}
+        {%- endif -%}
+    {%- endif -%}
+{%- endif -%}
+
+{%- if linkHref != empty -%}
+href="{{ linkHref | Escape }}"{% if linkIsExternal %} target="_blank" rel="noopener noreferrer"{% endif %}{% if linkIsDownload %} download{% endif %}
+{%- endif -%}
