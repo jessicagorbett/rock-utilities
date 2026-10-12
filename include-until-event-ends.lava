@@ -1,0 +1,26 @@
+{% assign start = 'Now' | Date | DateAdd:-30,'d' %}
+
+{% calendarevents calendarid:'1' startdate:'{{ start }}' daterange:'6m' maxoccurrences:'500' -%}
+{% assign EventItemOccurrences = EventScheduledInstances -%}
+{% assign eventItemOccurrenceCount = 0 -%}
+
+{% for eventItemOccurrence in EventScheduledInstances -%}
+    {% assign eventDurationMinutes = eventItemOccurrence.EventItemOccurrence.Schedule.DurationInMinutes | Default:0 -%}
+    {% assign eventEndDateTime = eventItemOccurrence.DateTime | DateAdd:eventDurationMinutes,'m' -%}
+    {% assign minutesUntilEnd = now | DateDiff:eventEndDateTime,'m' -%}
+    {% if minutesUntilEnd >= 0 -%}
+        {% assign eventItemOccurrenceCount = eventItemOccurrenceCount | Plus:1 -%}
+    {% endif -%}
+{% endfor -%}
+
+{% for eventItemOccurrence in EventItemOccurrences -%}
+    {% assign eventDurationMinutes = eventItemOccurrence.EventItemOccurrence.Schedule.DurationInMinutes | Default:0 -%}
+    {% assign eventEndDateTime = eventItemOccurrence.DateTime | DateAdd:eventDurationMinutes,'m' -%}
+    {% assign minutesUntilEnd = now | DateDiff:eventEndDateTime,'m' -%}
+    {% if minutesUntilEnd >= 0 -%}
+
+    {{ eventItemOccurrence.Name }}
+
+    {% endif -%}
+{% endfor -%}
+{% endcalendarevents -%}
