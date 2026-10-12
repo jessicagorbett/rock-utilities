@@ -1,0 +1,38 @@
+
+{% calendarevents calendarid:'1' daterange:'6m' maxoccurrences:'500' -%}
+{% assign EventItemOccurrences = EventScheduledInstances -%}
+{% assign eventItemOccurrenceCount = 0 -%}
+
+{% assign domain = 'Global' | Attribute:'PublicApplicationRoot' -%}
+
+{% for eventItemOccurrence in EventItemOccurrences -%}
+    {% assign occurrence = eventItemOccurrence.EventItemOccurrence -%}
+    {% assign eventItem = occurrence.EventItem -%}
+    {% assign eventName = eventItemOccurrence.Name | Default:eventItem.Name | Trim -%}
+    {% assign eventItemUrl = eventItem.DetailsUrl -%}
+    {% assign linkedDetailsPage = detailsPage -%}
+    {% assign detailUrl = '' %}
+    {% assign newtab = false -%}
+
+    {% if eventItemUrl and eventItemUrl != empty -%}
+        {% assign detailUrl = eventItemUrl -%}
+        {% if detailUrl contains domain or detailUrl startswith '/' -%}
+        {% else -%}
+        {% assign newtab = true -%}
+        {% endif -%}
+    {% endif -%}
+
+    {% if linkedDetailsPage and linkedDetailsPage != empty -%}
+        {% assign detailUrl = linkedDetailsPage | Append:'/' | Append:occurrence.Id -%}
+    {% endif -%}
+
+    {% if detailUrl == empty -%}
+        {% assign detailUrl = '/Events/' | Append:occurrence.Id -%}
+    {% endif -%}
+
+    {% if detailUrl != empty -%}<a href="{{ detailUrl }}" aria-label="View details for {{ eventName | Escape }}{% if newtab -%} in new tab{% endif -%}" {% if newtab -%}target="_blank"{% endif -%}>{% endif -%}
+    {{ eventItemOccurrence.Name }}
+    {% if detailUrl != empty -%}</a>{% endif -%}
+
+{% endfor -%}
+{% endcalendarevents -%}
